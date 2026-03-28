@@ -1,0 +1,27 @@
+[Unit]
+Description=gvisord - gVisor sentry pool daemon
+Documentation=https://github.com/shayonj/gvisord
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gvisord --config /etc/gvisord/config.json
+Restart=on-failure
+RestartSec=5s
+RuntimeDirectory=gvisord
+RuntimeDirectoryPreserve=no
+PIDFile=/run/gvisord/gvisord.pid
+
+# Security hardening
+NoNewPrivileges=no
+ProtectSystem=strict
+ReadWritePaths=/run/gvisord /mnt
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target

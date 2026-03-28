@@ -1,0 +1,48 @@
+{
+  "daemon": {
+    "socket": "/run/gvisord/gvisord.sock",
+    "workdir": "/run/gvisord/sentries",
+    "harness_path": "/var/gvisord/harness/gvisord-exec",
+    "cache_dir": "/var/cache/gvisord"
+  },
+  "runsc": {
+    "path": "/usr/local/bin/runsc",
+    "extra_flags": []
+  },
+  "network": {
+    "mode": "cni",
+    "plugin_dir": "/opt/cni/bin",
+    "config_dir": "/etc/cni/net.d",
+    "bridge": "gvisord0",
+    "subnet": "10.88.0.0/16"
+  },
+  "resource_classes": [
+    {"name": "small",  "cpu_millis": 500,  "memory_mb": 512},
+    {"name": "medium", "cpu_millis": 1000, "memory_mb": 1024},
+    {"name": "large",  "cpu_millis": 2000, "memory_mb": 4096}
+  ],
+  "templates": {
+    "python": {
+      "rootfs": "/var/gvisord/images/python/rootfs",
+      "checkpoint": "/var/gvisord/images/python/checkpoint",
+      "pools": [
+        {"resource_class": "small",  "pool_size": 5, "pre_restore": true},
+        {"resource_class": "large",  "pool_size": 2, "pre_restore": true}
+      ]
+    },
+    "node": {
+      "rootfs": "/var/gvisord/images/node/rootfs",
+      "checkpoint": "/var/gvisord/images/node/checkpoint",
+      "pools": [
+        {"resource_class": "medium", "pool_size": 3, "pre_restore": true}
+      ]
+    }
+  },
+  "limits": {
+    "max_restores_per_sentry": 200,
+    "max_sentry_age": "30m",
+    "max_rss_growth_kb": 204800,
+    "max_open_fds": 1024,
+    "idle_timeout": "10m"
+  }
+}

@@ -1,0 +1,25 @@
+# Binaries
+/gvisord
+/gvisord-exec
+/gvisord-linux
+
+# Test binaries
+*.test
+*.out
+
+# Go build cache
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local notes
+TODO.md

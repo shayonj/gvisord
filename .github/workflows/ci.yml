@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ["1.23"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Build
+        run: go build -v ./...
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ["1.23"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Unit and integration tests
+        run: go test -v -race -count=1 ./...
+
+      - name: Build static harness binary
+        run: CGO_ENABLED=0 GOOS=linux go build -o /dev/null ./cmd/gvisord-exec
+
+  e2e-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Install runsc
+        run: |
+          set -e
+          ARCH=$(uname -m)
+          URL="https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}"
+          sudo wget -q "${URL}/runsc" -O /usr/local/bin/runsc
+          sudo chmod +x /usr/local/bin/runsc
+          runsc --version
+
+      - name: Install CNI plugins
+        run: |
+          set -e
+          CNI_VERSION="v1.4.0"
+          ARCH="amd64"
+          sudo mkdir -p /opt/cni/bin
+          curl -sSL "https://github.com/containernetworking/plugins/releases/download/${CNI_VERSION}/cni-plugins-linux-${ARCH}-${CNI_VERSION}.tgz" \
+            | sudo tar -xz -C /opt/cni/bin
+          ls /opt/cni/bin/
+
+      - name: Create busybox rootfs
+        run: |
+          sudo mkdir -p /tmp/gvisord-e2e-rootfs
+          docker pull busybox:latest
+          CID=$(docker create busybox:latest)
+          docker export "$CID" | sudo tar -xf - -C /tmp/gvisord-e2e-rootfs
+          docker rm "$CID"
+          ls /tmp/gvisord-e2e-rootfs/bin/sh
+
+      - name: Run integration tests
+        run: |
+          sudo env \
+            GVISORD_INTEGRATION=1 \
+            GVISORD_E2E_ROOTFS=/tmp/gvisord-e2e-rootfs \
+            PATH="$PATH" \
+            HOME="$HOME" \
+            GOPATH="$(go env GOPATH)" \
+            GOROOT="$(go env GOROOT)" \
+            $(go env GOROOT)/bin/go test -v -count=1 -timeout 120s ./e2e/ -run TestIntegration
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  vet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Vet
+        run: go vet ./...
+
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check license headers
+        run: |
+          missing=0
+          for f in $(find . -name '*.go' -not -path './vendor/*'); do
+            if ! head -1 "$f" | grep -q 'Copyright'; then
+              echo "Missing license header: $f"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "::error::Some files are missing license headers"
+            exit 1
+          fi

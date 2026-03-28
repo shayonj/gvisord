@@ -1,0 +1,33 @@
+{
+  "daemon": {
+    "socket": "/run/gvisord/gvisord.sock",
+    "workdir": "/run/gvisord/sentries",
+    "harness_path": "/var/gvisord/harness/gvisord-exec"
+  },
+  "runsc": {
+    "path": "/usr/local/bin/runsc",
+    "extra_flags": []
+  },
+  "network": {
+    "mode": "none"
+  },
+  "resource_classes": [
+    {"name": "small", "cpu_millis": 500, "memory_mb": 512}
+  ],
+  "templates": {
+    "python": {
+      "rootfs": "/var/gvisord/images/python/rootfs",
+      "checkpoint": "/var/gvisord/images/python/checkpoint",
+      "pools": [
+        {"resource_class": "small", "pool_size": 2, "pre_restore": true}
+      ]
+    }
+  },
+  "limits": {
+    "max_restores_per_sentry": 100,
+    "max_sentry_age": "10m",
+    "max_rss_growth_kb": 204800,
+    "max_open_fds": 512,
+    "idle_timeout": "5m"
+  }
+}
